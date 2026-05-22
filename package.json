@@ -1,6 +1,6 @@
 {
   "name": "@stargiraffe/annotator",
-  "version": "0.3.40",
+  "version": "1.0.0",
   "description": "React text highlighting & annotation library with localStorage persistence",
   "license": "MIT",
   "author": "Your Name",
@@ -52,9 +52,9 @@
     "url": "git+https://github.com/kyusungpark/annotator.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/annotator/issues"
+    "url": "https://github.com/kyusungpark/annotator/issues"
   },
-  "homepage": "https://github.com/yourusername/annotator#readme",
+  "homepage": "https://github.com/kyusungpark/annotator#readme",
   "publishConfig": {
     "access": "public"
   },
