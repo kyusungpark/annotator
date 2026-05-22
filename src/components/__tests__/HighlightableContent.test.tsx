@@ -1,7 +1,7 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within, waitFor } from '@testing-library/react'
-import { HighlightableContent } from '../HighlightableContent'
 import { createMemoryStorageProvider } from '../../storage/provider'
+import { HighlightableContent } from '../HighlightableContent'
 
 describe('HighlightableContent', () => {
   beforeEach(() => {
@@ -218,7 +218,7 @@ describe('HighlightableContent', () => {
     const deleteButton = within(secondHighlight).getByRole('button', { name: /remove highlight/i })
 
     expect(deleteButton).toHaveStyle({
-      left: '118px',
+      left: '120px',
       top: '20px',
       transform: 'translate(50%, -50%)',
     })

@@ -1,10 +1,9 @@
-import { HighlightColor, HighlightPalette, HIGHLIGHT_COLOR_VALUES, DEFAULT_HIGHLIGHT_COLOR } from '../types/index'
-import { useCallback, useEffect, useMemo, useRef, useState, ReactNode } from 'react'
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAnnotations } from '../hooks/useAnnotations'
 import { useHighlighter } from '../hooks/useHighlighter'
 import { StorageProvider } from '../storage/provider'
+import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_VALUES, HighlightColor, HighlightPalette } from '../types/index'
 import { AnnotationPopover } from './AnnotationPopover'
-import { X } from 'lucide-react'
 
 export interface HighlightableContentProps {
   id: string
@@ -445,7 +444,7 @@ function positionDeleteButtonAtHighlightEnd(mark: HTMLElement, deleteBtn: HTMLBu
   const clientRects = Array.from(mark.getClientRects())
   const targetRect = clientRects.length > 0 ? clientRects[clientRects.length - 1] : markRect
 
-  deleteBtn.style.left = `${targetRect.right - markRect.left - 2}px`
+  deleteBtn.style.left = `${targetRect.right - markRect.left}px`
   deleteBtn.style.top = `${targetRect.top - markRect.top}px`
   deleteBtn.style.transform = 'translate(50%, -50%)'
 }
