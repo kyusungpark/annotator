@@ -444,17 +444,7 @@ function positionDeleteButtonAtHighlightEnd(mark: HTMLElement, deleteBtn: HTMLBu
   const clientRects = Array.from(mark.getClientRects())
   const targetRect = clientRects.length > 0 ? clientRects[clientRects.length - 1] : markRect
 
-  deleteBtn.style.left = `${targetRect.right - markRect.left}px`
+  deleteBtn.style.left = `${targetRect.right - markRect.left - 10}px`
   deleteBtn.style.top = `${targetRect.top - markRect.top}px`
   deleteBtn.style.transform = 'translate(50%, -50%)'
-}
-
-function getFullTextContent(el: Element): string {
-  let text = ''
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null)
-  let node: Node | null
-  while ((node = walker.nextNode())) {
-    text += node.textContent || ''
-  }
-  return text
 }
