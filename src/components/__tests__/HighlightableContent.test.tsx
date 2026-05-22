@@ -1,8 +1,76 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import { HighlightableContent } from '../HighlightableContent'
+import { createMemoryStorageProvider } from '../../storage/provider'
 
 describe('HighlightableContent', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.tagName === 'MARK') {
+        return {
+          left: 10,
+          top: 20,
+          right: 130,
+          bottom: 60,
+          width: 120,
+          height: 40,
+          x: 10,
+          y: 20,
+          toJSON() {},
+        } as DOMRect
+      }
+
+      return {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 0,
+        height: 0,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      } as DOMRect
+    })
+
+    vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (this: HTMLElement) {
+      if (this.tagName === 'MARK') {
+        return [
+          {
+            left: 10,
+            top: 20,
+            right: 90,
+            bottom: 40,
+            width: 80,
+            height: 20,
+            x: 10,
+            y: 20,
+            toJSON() {},
+          },
+          {
+            left: 10,
+            top: 40,
+            right: 130,
+            bottom: 60,
+            width: 120,
+            height: 20,
+            x: 10,
+            y: 40,
+            toJSON() {},
+          },
+        ] as unknown as DOMRectList
+      }
+
+      return [] as unknown as DOMRectList
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('should render with provided children', () => {
     render(
       <HighlightableContent id="test-123">
@@ -100,5 +168,59 @@ describe('HighlightableContent', () => {
     expect(screen.getByText('First paragraph')).toBeInTheDocument()
     expect(screen.getByText('Second paragraph')).toBeInTheDocument()
   })
-})
 
+  it('should keep later highlights aligned when earlier highlights exist', async () => {
+    const storageProvider = createMemoryStorageProvider({
+      demo: {
+        highlights: [
+          {
+            id: 'highlight-1',
+            text: 'bravo',
+            range: {
+              startOffset: 6,
+              endOffset: 11,
+              textContent: 'bravo',
+            },
+            color: 'yellow',
+            createdAt: 1,
+          },
+          {
+            id: 'highlight-2',
+            text: 'delta',
+            range: {
+              startOffset: 20,
+              endOffset: 25,
+              textContent: 'delta',
+            },
+            color: 'green',
+            createdAt: 2,
+          },
+        ],
+        annotations: [],
+      },
+    })
+
+    render(
+      <HighlightableContent id="demo" storageProvider={storageProvider}>
+        <p>alpha bravo charlie delta echo</p>
+      </HighlightableContent>,
+    )
+
+    await waitFor(() => {
+      const firstHighlight = screen.getByTestId('highlight-highlight-1')
+      const secondHighlight = screen.getByTestId('highlight-highlight-2')
+
+      expect(firstHighlight).toHaveTextContent('bravo')
+      expect(secondHighlight).toHaveTextContent('delta')
+    })
+
+    const secondHighlight = screen.getByTestId('highlight-highlight-2')
+    const deleteButton = within(secondHighlight).getByRole('button', { name: /remove highlight/i })
+
+    expect(deleteButton).toHaveStyle({
+      left: '118px',
+      top: '20px',
+      transform: 'translate(50%, -50%)',
+    })
+  })
+})

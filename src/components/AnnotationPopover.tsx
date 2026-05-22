@@ -1,6 +1,6 @@
-import { Annotation, HighlightColor, HighlightPalette, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_VALUES } from '../types/index'
 import { AlertTriangle, Edit2, Save, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Annotation, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_VALUES, HighlightColor, HighlightPalette } from '../types/index'
 import { Button } from '../ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { Textarea } from '../ui/textarea'
@@ -12,6 +12,7 @@ export interface AnnotationPopoverProps {
   onUpdate: (annotationId: string, text: string) => void
   onDelete: (annotationId: string) => void
   onDeleteHighlight?: () => void
+  onDeleteAllHighlights?: () => void
   onColorChange?: (color: HighlightColor) => void
   currentColor?: HighlightColor
   colorPalette?: HighlightPalette
@@ -37,6 +38,7 @@ export const AnnotationPopover = ({
   onUpdate,
   onDelete,
   onDeleteHighlight,
+  onDeleteAllHighlights,
   onColorChange,
   currentColor,
   colorPalette,
@@ -91,71 +93,67 @@ export const AnnotationPopover = ({
         <div className="space-y-3">
           {/* Color Picker with Delete All button */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600">Color:</span>
-              <div className="flex items-center gap-1.5">
-                {(Object.keys(HIGHLIGHT_COLORS) as HighlightColor[]).map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      border: currentColor === color ? '3px solid #333' : '2px solid #ccc',
-                      backgroundColor: mergedColorPalette[color],
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                    title={`Change to ${colorLabels[color]}`}
-                    onClick={() => onColorChange?.(color)}
-                    onMouseEnter={(e) => {
-                      (e.target as HTMLButtonElement).style.transform = 'scale(1.15)'
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.target as HTMLButtonElement).style.transform = 'scale(1)'
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            {onDeleteHighlight && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (confirm('Delete all highlights on this page?')) {
+            <div className="flex items-center gap-1">
+              {onDeleteHighlight && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
                     onDeleteHighlight()
                     onOpenChange?.(false)
-                  }
-                }}
-                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                title="Delete all highlights"
-              >
-                <AlertTriangle size={14} />
-              </Button>
-            )}
+                  }}
+                  className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  title="Delete this highlight"
+                >
+                  <Trash2 size={14} />
+                </Button>
+              )}
+              {onDeleteAllHighlights && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm('Delete all highlights for this test?')) {
+                      onDeleteAllHighlights()
+                      onOpenChange?.(false)
+                    }
+                  }}
+                  className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  title="Delete all highlights for this test"
+                >
+                  <AlertTriangle size={14} />
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {(Object.keys(HIGHLIGHT_COLORS) as HighlightColor[]).map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    border: currentColor === color ? '3px solid #333' : '2px solid #ccc',
+                    backgroundColor: mergedColorPalette[color],
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  title={`Change to ${colorLabels[color]}`}
+                  onClick={() => onColorChange?.(color)}
+                  onMouseEnter={(e) => {
+                    (e.target as HTMLButtonElement).style.transform = 'scale(1.15)'
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.target as HTMLButtonElement).style.transform = 'scale(1)'
+                  }}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="border-t pt-2" />
-
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-sm">Notes</h4>
-            {onDeleteHighlight && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  onDeleteHighlight()
-                  onOpenChange?.(false)
-                }}
-                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                title="Delete this highlight"
-              >
-                <Trash2 size={14} />
-              </Button>
-            )}
-          </div>
+          <h4 className="font-semibold text-sm">Notes</h4>
 
           {/* Existing annotations */}
           {annotations.map((annotation) => (

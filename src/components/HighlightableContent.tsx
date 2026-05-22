@@ -136,8 +136,15 @@ export const HighlightableContent = ({
 
     if (highlights.length === 0) return
 
-    // Apply highlights using Range API to properly wrap multi-element content
-    highlights.forEach((hl) => {
+    // Apply highlights from the end of the document back to the start so
+    // earlier inserted wrappers do not shift the ranges we still need to render.
+    const highlightsToRender = [...highlights].sort(
+      (a, b) =>
+        b.range.startOffset - a.range.startOffset ||
+        b.range.endOffset - a.range.endOffset,
+    )
+
+    highlightsToRender.forEach((hl) => {
       const range = document.createRange()
       let charCount = 0
       let startNode: Node | null = null
@@ -202,24 +209,20 @@ export const HighlightableContent = ({
 
         // Create delete button
         const deleteBtn = document.createElement('button')
-        deleteBtn.className = 'highlight-delete-btn absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white opacity-0 transition-opacity hover:bg-red-600'
+        deleteBtn.className = 'highlight-delete-btn absolute z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white opacity-0 transition-opacity hover:bg-red-600'
         deleteBtn.setAttribute('type', 'button')
         deleteBtn.setAttribute('aria-label', 'Remove highlight')
         deleteBtn.setAttribute('title', 'Remove highlight')
         deleteBtn.innerHTML = '×'
 
-        const deleteAnchor = document.createElement('span')
-        deleteAnchor.className = 'highlight-delete-anchor relative inline-block h-0 w-0 align-baseline'
-        deleteBtn.classList.remove('-right-0.5')
-        deleteBtn.classList.add('-left-0.5')
-        deleteAnchor.appendChild(deleteBtn)
-
-        mark.appendChild(deleteAnchor)
+        mark.appendChild(deleteBtn)
         mark.appendChild(contents)
         range.insertNode(mark)
+        positionDeleteButtonAtHighlightEnd(mark as HTMLElement, deleteBtn)
 
         // Add event listeners
         mark.addEventListener('mouseenter', () => {
+          positionDeleteButtonAtHighlightEnd(mark as HTMLElement, deleteBtn)
           const rect = (mark as HTMLElement).getBoundingClientRect()
           setAnnotationPos({
             x: rect.left + rect.width / 2,
@@ -246,6 +249,7 @@ export const HighlightableContent = ({
             return
           }
           // Highlight click to open menu
+          positionDeleteButtonAtHighlightEnd(mark as HTMLElement, deleteBtn)
           setActiveHighlightId(hl.id)
           const rect = (mark as HTMLElement).getBoundingClientRect()
           setAnnotationPos({
@@ -336,13 +340,11 @@ export const HighlightableContent = ({
   )
 
   const handleClearAll = useCallback(() => {
-    if (confirm('Clear all highlights and annotations?')) {
-      // Clear all annotations for all highlights first
-      highlights.forEach((h) => deleteAnnotationsForHighlight(h.id))
-      // Then clear all highlights in batch
-      clearAllForCurrentContext()
-      setActiveHighlightId(null)
-    }
+    // Clear all annotations for all highlights first
+    highlights.forEach((h) => deleteAnnotationsForHighlight(h.id))
+    // Then clear all highlights in batch
+    clearAllForCurrentContext()
+    setActiveHighlightId(null)
   }, [highlights, deleteAnnotationsForHighlight, clearAllForCurrentContext])
 
   const handleColorChange = useCallback(
@@ -418,6 +420,7 @@ export const HighlightableContent = ({
             onUpdate={(annotationId, text) => updateAnnotationText(annotationId, text)}
             onDelete={(annotationId) => deleteAnnotation(annotationId)}
             onDeleteHighlight={() => handleDeleteHighlight(activeHighlightId)}
+            onDeleteAllHighlights={handleClearAll}
             onColorChange={handleColorChange}
             currentColor={getCurrentHighlightColor()}
             colorPalette={mergedColorPalette}
@@ -435,6 +438,16 @@ export const HighlightableContent = ({
       )}
     </div>
   )
+}
+
+function positionDeleteButtonAtHighlightEnd(mark: HTMLElement, deleteBtn: HTMLButtonElement) {
+  const markRect = mark.getBoundingClientRect()
+  const clientRects = Array.from(mark.getClientRects())
+  const targetRect = clientRects.length > 0 ? clientRects[clientRects.length - 1] : markRect
+
+  deleteBtn.style.left = `${targetRect.right - markRect.left - 2}px`
+  deleteBtn.style.top = `${targetRect.top - markRect.top}px`
+  deleteBtn.style.transform = 'translate(50%, -50%)'
 }
 
 function getFullTextContent(el: Element): string {
