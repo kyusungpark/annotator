@@ -1,6 +1,6 @@
 {
   "name": "@stargiraffe/annotator",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "React text highlighting & annotation library with localStorage persistence",
   "license": "MIT",
   "author": "Your Name",

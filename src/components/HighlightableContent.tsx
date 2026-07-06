@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAnnotations } from '../hooks/useAnnotations'
 import { useHighlighter } from '../hooks/useHighlighter'
 import { StorageProvider } from '../storage/provider'
@@ -56,13 +56,43 @@ export const HighlightableContent = ({
     getHighlightAnnotations,
   } = useAnnotations({ id, storageProvider })
 
-  // Re-render highlights when they change
+  // TEARDOWN: runs synchronously before React removes/replaces DOM nodes.
+  // This prevents the race condition where the old annotator's deferred DOM
+  // work (originally setTimeout 0) fired after React had already replaced
+  // the content during navigation, causing NotFoundError / IndexSizeError.
+  useLayoutEffect(() => {
+    return () => {
+      // Strip all highlight marks synchronously on unmount or before re-applying.
+      // Running this in useLayoutEffect cleanup guarantees it executes before
+      // React commits the next tree, so we never operate on detached nodes.
+      if (!contentRef.current) return
+      const allHighlights = contentRef.current.querySelectorAll('mark.highlight-mark')
+      allHighlights.forEach((el) => {
+        const parent = el.parentNode
+        if (!parent) return
+        while (el.firstChild) {
+          const child = el.firstChild
+          if (
+            child.nodeType === Node.ELEMENT_NODE &&
+            (
+              (child as Element).classList.contains('highlight-delete-btn') ||
+              (child as Element).classList.contains('highlight-delete-anchor')
+            )
+          ) {
+            el.removeChild(child)
+            continue
+          }
+          parent.insertBefore(child, el)
+        }
+        parent.removeChild(el)
+        parent.normalize()
+      })
+    }
+  }, [highlights, mergedColorPalette])
+
+  // RE-APPLICATION: runs after paint — safe, DOM is stable at this point.
   useEffect(() => {
-    if (!contentRef.current) return
-    const timer = setTimeout(() => {
-      applyHighlightsToDOM()
-    }, 0)
-    return () => clearTimeout(timer)
+    applyHighlightsToDOM()
   }, [highlights, mergedColorPalette])
 
   // Update popover position when viewport changes
