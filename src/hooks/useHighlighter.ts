@@ -1,6 +1,5 @@
 import { Highlight, HighlightColor, DEFAULT_HIGHLIGHT_COLOR } from '../types/index'
 import { useCallback, useEffect, useState } from 'react'
-import { nanoid } from 'nanoid'
 import { StorageProvider } from '../storage/provider'
 import {
   clearAllHighlights,
@@ -63,7 +62,7 @@ export const useHighlighter = ({
       if (!enabled || !id) return
 
       const newHighlight: Highlight = {
-        id: nanoid(),
+        id: crypto.randomUUID(),
         text,
         range,
         color: currentColor,
@@ -82,7 +81,7 @@ export const useHighlighter = ({
       if (!enabled || !id) return null
 
       const newHighlight: Highlight = {
-        id: nanoid(),
+        id: crypto.randomUUID(),
         text,
         range,
         color,

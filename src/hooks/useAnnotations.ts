@@ -1,12 +1,10 @@
 import { Annotation, AnnotationPosition } from '../types/index'
 import { useCallback, useEffect, useState } from 'react'
-import { nanoid } from 'nanoid'
 import { StorageProvider } from '../storage/provider'
 import {
   addAnnotation,
   clearAllAnnotations as clearAllStoredAnnotations,
   clearAllForId,
-  getAnnotationsForHighlight,
   loadAnnotations,
   removeAnnotation,
   removeAnnotationsForHighlight,
@@ -63,7 +61,7 @@ export const useAnnotations = ({
       if (!enabled || !id || !text.trim()) return
 
       const newAnnotation: Annotation = {
-        id: nanoid(),
+        id: crypto.randomUUID(),
         highlightId,
         text: text.trim(),
         position,
@@ -125,13 +123,14 @@ export const useAnnotations = ({
     [enabled, id, storageProvider],
   )
 
-  // Get annotations for a specific highlight
+  // Get annotations for a specific highlight from in-memory state so the
+  // result stays reactive to create/update/delete without a storage round-trip.
   const getHighlightAnnotations = useCallback(
     (highlightId: string): Annotation[] => {
       if (!enabled || !id) return []
-      return getAnnotationsForHighlight(id, highlightId, storageProvider)
+      return annotations.filter((a) => a.highlightId === highlightId)
     },
-    [enabled, id, storageProvider],
+    [enabled, id, annotations],
   )
 
   return {

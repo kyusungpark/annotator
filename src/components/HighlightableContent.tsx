@@ -174,93 +174,87 @@ export const HighlightableContent = ({
     )
 
     highlightsToRender.forEach((hl) => {
-      const range = document.createRange()
-      let charCount = 0
-      let startNode: Node | null = null
-      let startOffset = 0
-      let endNode: Node | null = null
-      let endOffset = 0
-      let foundStart = false
-
-      // Walk through all text nodes to find start and end positions
-      const walker = document.createTreeWalker(
+      const segments: { node: Node; from: number; to: number }[] = []
+      const segWalker = document.createTreeWalker(
         contentRef.current!,
         NodeFilter.SHOW_TEXT,
         {
           acceptNode(node: Node) {
-            let parent = node.parentElement
-            while (parent && parent !== contentRef.current) {
-              if (parent.classList.contains('highlight-mark')) {
-                return NodeFilter.FILTER_REJECT
-              }
-              parent = parent.parentElement
+            let p = node.parentElement
+            while (p && p !== contentRef.current) {
+              if (p.classList.contains('highlight-mark')) return NodeFilter.FILTER_REJECT
+              p = p.parentElement
             }
             return NodeFilter.FILTER_ACCEPT
           },
-        }
+        },
       )
-
-      let textNode: Node | null
-      while ((textNode = walker.nextNode())) {
-        const textLength = textNode.textContent?.length || 0
-
-        // Check if start position is in this node
-        if (!foundStart && charCount + textLength > hl.range.startOffset) {
-          startNode = textNode
-          startOffset = hl.range.startOffset - charCount
-          foundStart = true
+      let segChar = 0
+      let segNode: Node | null
+      while ((segNode = segWalker.nextNode())) {
+        const len = segNode.textContent?.length || 0
+        const nodeStart = segChar
+        const nodeEnd = segChar + len
+        if (nodeEnd > hl.range.startOffset && nodeStart < hl.range.endOffset) {
+          segments.push({
+            node: segNode,
+            from: Math.max(0, hl.range.startOffset - nodeStart),
+            to: Math.min(len, hl.range.endOffset - nodeStart),
+          })
         }
-
-        // Check if end position is in this node
-        if (foundStart && charCount + textLength >= hl.range.endOffset) {
-          endNode = textNode
-          endOffset = hl.range.endOffset - charCount
-          break
-        }
-
-        charCount += textLength
+        segChar += len
+        if (segChar >= hl.range.endOffset) break
       }
 
-      if (startNode && endNode) {
-        range.setStart(startNode, startOffset)
-        range.setEnd(endNode, endOffset)
+      if (segments.length === 0) return
 
-        // Create mark element
+      // One delete button shared across all mark segments for this highlight.
+      const deleteBtn = document.createElement('button')
+      deleteBtn.className =
+        'highlight-delete-btn absolute z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white opacity-0 transition-opacity hover:bg-red-600'
+      deleteBtn.setAttribute('type', 'button')
+      deleteBtn.setAttribute('aria-label', 'Remove highlight')
+      deleteBtn.setAttribute('title', 'Remove highlight')
+      deleteBtn.innerHTML = '×'
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        handleDeleteHighlight(hl.id)
+      })
+
+      const marks: HTMLElement[] = []
+
+      // Wrap each text segment in its own <mark> so we never split element
+      // boundaries - avoids DOM structure corruption on multi-element
+      // selections.
+      for (let i = 0; i < segments.length; i++) {
+        const { node, from, to } = segments[i]
+        const segRange = document.createRange()
+        segRange.setStart(node, from)
+        segRange.setEnd(node, to)
+
         const mark = document.createElement('mark')
-        mark.className = 'highlight-mark group relative cursor-pointer rounded-sm transition-colors'
+        mark.className =
+          'highlight-mark group relative cursor-pointer rounded-sm transition-colors'
         mark.setAttribute('data-highlight-id', hl.id)
         mark.setAttribute('data-testid', `highlight-${hl.id}`)
         mark.style.backgroundColor = mergedColorPalette[hl.color]
         mark.style.padding = '2px 4px'
 
-        // Wrap the range content with the mark
-        const contents = range.extractContents()
+        segRange.surroundContents(mark)
+        marks.push(mark)
 
-        // Create delete button
-        const deleteBtn = document.createElement('button')
-        deleteBtn.className = 'highlight-delete-btn absolute z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white opacity-0 transition-opacity hover:bg-red-600'
-        deleteBtn.setAttribute('type', 'button')
-        deleteBtn.setAttribute('aria-label', 'Remove highlight')
-        deleteBtn.setAttribute('title', 'Remove highlight')
-        deleteBtn.innerHTML = '×'
+        // Delete button only on the last segment so it appears at the end.
+        if (i === segments.length - 1) {
+          mark.appendChild(deleteBtn)
+        }
 
-        mark.appendChild(deleteBtn)
-        mark.appendChild(contents)
-        range.insertNode(mark)
-        positionDeleteButtonAtHighlightEnd(mark as HTMLElement, deleteBtn)
-
-        // Add event listeners
         mark.addEventListener('mouseenter', () => {
-          positionDeleteButtonAtHighlightEnd(mark as HTMLElement, deleteBtn)
-          const rect = (mark as HTMLElement).getBoundingClientRect()
-          setAnnotationPos({
-            x: rect.left + rect.width / 2,
-            y: rect.bottom + 8,
-          })
+          const lastMark = marks[marks.length - 1]
+          positionDeleteButtonAtHighlightEnd(lastMark, deleteBtn)
+          const rect = lastMark.getBoundingClientRect()
+          setAnnotationPos({ x: rect.left + rect.width / 2, y: rect.bottom + 8 })
           setActiveHighlightId(hl.id)
           annotationTriggerRef.current?.click()
-
-          // Show delete button with opacity
           deleteBtn.style.opacity = '1'
         })
 
@@ -268,26 +262,18 @@ export const HighlightableContent = ({
           deleteBtn.style.opacity = '0'
         })
 
-        deleteBtn.addEventListener('click', (e) => {
-          e.stopPropagation()
-          handleDeleteHighlight(hl.id)
-        })
-
         mark.addEventListener('click', (e) => {
-          if ((e.target as HTMLElement).closest('.highlight-delete-btn')) {
-            return
-          }
-          // Highlight click to open menu
-          positionDeleteButtonAtHighlightEnd(mark as HTMLElement, deleteBtn)
+          if ((e.target as HTMLElement).closest('.highlight-delete-btn')) return
+          const lastMark = marks[marks.length - 1]
+          positionDeleteButtonAtHighlightEnd(lastMark, deleteBtn)
           setActiveHighlightId(hl.id)
-          const rect = (mark as HTMLElement).getBoundingClientRect()
-          setAnnotationPos({
-            x: rect.left + rect.width / 2,
-            y: rect.bottom + 8,
-          })
+          const rect = lastMark.getBoundingClientRect()
+          setAnnotationPos({ x: rect.left + rect.width / 2, y: rect.bottom + 8 })
           annotationTriggerRef.current?.click()
         })
       }
+
+      positionDeleteButtonAtHighlightEnd(marks[marks.length - 1], deleteBtn)
     })
   }
 
@@ -302,37 +288,17 @@ export const HighlightableContent = ({
     const range = selection.getRangeAt(0)
     const selectedText = selection.toString()
 
-    // Calculate offset by walking text nodes, counting all text but skipping button text
-    let charCount = 0
-    const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT, null)
-
-    let currentNode: Node | null
-    while ((currentNode = walker.nextNode())) {
-      // Skip text nodes inside BUTTON elements (the delete button with "✕")
-      let parent = currentNode.parentNode
-      let insideButton = false
-      while (parent && parent !== contentRef.current) {
-        if ((parent as Element).tagName === 'BUTTON') {
-          insideButton = true
-          break
-        }
-        parent = parent.parentNode
-      }
-
-      if (insideButton) {
-        continue // Skip text inside button elements
-      }
-
-      if (currentNode === range.endContainer) {
-        charCount += range.endOffset
-        break
-      } else {
-        charCount += currentNode.textContent?.length || 0
-      }
-    }
-
-    const endOffset = charCount
-    const startOffset = endOffset - selectedText.length
+    // Derive absolute char offsets for BOTH boundaries directly from the range,
+    // in the same coordinate system applyHighlightsToDOM measures against
+    // (text-node characters, excluding the delete button's text).
+    //
+    // Computing startOffset from the start boundary - rather than
+    // endOffset - selectedText.length - is essential for multi-element (multi-line)
+    // selections: there, range.endContainer is an element node (not a text node)
+    // and selection.toString() injects synthetic newlines between blocks, so the
+    // old length-subtraction approach pushed the highlight to the end of the content.
+    const startOffset = getCharOffset(contentRef.current, range.startContainer, range.startOffset)
+    const endOffset = getCharOffset(contentRef.current, range.endContainer, range.endOffset)
 
     const selectionData = {
       text: selectedText,
@@ -477,4 +443,44 @@ function positionDeleteButtonAtHighlightEnd(mark: HTMLElement, deleteBtn: HTMLBu
   deleteBtn.style.left = `${targetRect.right - markRect.left - 10}px`
   deleteBtn.style.top = `${targetRect.top - markRect.top}px`
   deleteBtn.style.transform = 'translate(50%, -50%)'
+}
+
+// Absolute character offset of a range boundary (container, offset) within root,
+// counting text-node characters and skipping the delete button's text. Handles
+// element-node containers, which is what selection boundaries resolve to when a
+// selection spans multiple block elements.
+function getCharOffset(root: HTMLElement, container: Node, offset: number): number {
+  const boundary = document.createRange()
+  boundary.setStart(root, 0)
+  boundary.setEnd(container, offset)
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node: Node) {
+      let p = node.parentNode
+      while (p && p !== root) {
+        if ((p as Element).tagName === 'BUTTON') return NodeFilter.FILTER_REJECT
+        p = p.parentNode
+      }
+      return NodeFilter.FILTER_ACCEPT
+    },
+  })
+
+  let count = 0
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    const len = node.textContent?.length || 0
+    if (node === container) {
+      return count + offset
+    }
+
+    // comparePoint <= 0 means this text node ends at or before the boundary,
+    // so it lies fully before the boundary and is counted in full.
+    if (boundary.comparePoint(node, len) <= 0) {
+      count += len
+    } else {
+      break
+    }
+  }
+
+  return count
 }

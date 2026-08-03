@@ -218,7 +218,7 @@ describe('HighlightableContent', () => {
     const deleteButton = within(secondHighlight).getByRole('button', { name: /remove highlight/i })
 
     expect(deleteButton).toHaveStyle({
-      left: '120px',
+      left: '110px',
       top: '20px',
       transform: 'translate(50%, -50%)',
     })
