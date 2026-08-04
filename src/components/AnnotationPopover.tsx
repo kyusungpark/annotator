@@ -80,10 +80,8 @@ export const AnnotationPopover = ({
   }
 
   const handleDelete = (annotationId: string) => {
-    if (confirm('Delete this note?')) {
-      onDelete(annotationId)
-      setIsEditing(null)
-    }
+    onDelete(annotationId)
+    setIsEditing(null)
   }
 
   return (
@@ -205,6 +203,8 @@ export const AnnotationPopover = ({
                         variant="ghost"
                         onClick={() => handleDelete(annotation.id)}
                         className="h-6 px-2 text-red-600 hover:text-red-700"
+                        title="Delete note"
+                        aria-label="Delete note"
                       >
                         <Trash2 size={12} />
                       </Button>

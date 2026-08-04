@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryStorageProvider } from '../../storage/provider'
 import { HighlightableContent } from '../HighlightableContent'
@@ -214,13 +214,13 @@ describe('HighlightableContent', () => {
       expect(secondHighlight).toHaveTextContent('delta')
     })
 
-    const secondHighlight = screen.getByTestId('highlight-highlight-2')
-    const deleteButton = within(secondHighlight).getByRole('button', { name: /remove highlight/i })
+    const deleteButtons = screen.getAllByRole('button', { name: /remove highlight/i })
+    const deleteButton = deleteButtons[deleteButtons.length - 1]
 
     expect(deleteButton).toHaveStyle({
-      left: '110px',
-      top: '20px',
-      transform: 'translate(50%, -50%)',
+      left: '130px',
+      top: '40px',
+      transform: 'translate(-50%, -50%)',
     })
   })
 })

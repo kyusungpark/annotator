@@ -220,6 +220,12 @@ export const HighlightableContent = ({
         e.stopPropagation()
         handleDeleteHighlight(hl.id)
       })
+      deleteBtn.addEventListener('mouseenter', () => {
+        deleteBtn.style.opacity = '1'
+      })
+      deleteBtn.addEventListener('mouseleave', () => {
+        deleteBtn.style.opacity = '0'
+      })
 
       const marks: HTMLElement[] = []
 
@@ -234,25 +240,23 @@ export const HighlightableContent = ({
 
         const mark = document.createElement('mark')
         mark.className =
-          'highlight-mark group relative cursor-pointer rounded-sm transition-colors'
+          'highlight-mark group cursor-pointer rounded-sm transition-colors'
         mark.setAttribute('data-highlight-id', hl.id)
         mark.setAttribute('data-testid', `highlight-${hl.id}`)
         mark.style.backgroundColor = mergedColorPalette[hl.color]
-        mark.style.padding = '2px 4px'
 
         segRange.surroundContents(mark)
         marks.push(mark)
 
-        // Delete button only on the last segment so it appears at the end.
-        if (i === segments.length - 1) {
-          mark.appendChild(deleteBtn)
-        }
-
         mark.addEventListener('mouseenter', () => {
           const lastMark = marks[marks.length - 1]
-          positionDeleteButtonAtHighlightEnd(lastMark, deleteBtn)
-          const rect = lastMark.getBoundingClientRect()
-          setAnnotationPos({ x: rect.left + rect.width / 2, y: rect.bottom + 8 })
+          if (containerRef.current) {
+            positionDeleteButtonAtHighlightEnd(lastMark, deleteBtn, containerRef.current)
+          }
+          const clientRects = Array.from(lastMark.getClientRects())
+          const targetRect =
+            clientRects.length > 0 ? clientRects[clientRects.length - 1] : lastMark.getBoundingClientRect()
+          setAnnotationPos({ x: targetRect.left + targetRect.width / 2, y: targetRect.bottom + 8 })
           setActiveHighlightId(hl.id)
           annotationTriggerRef.current?.click()
           deleteBtn.style.opacity = '1'
@@ -265,15 +269,22 @@ export const HighlightableContent = ({
         mark.addEventListener('click', (e) => {
           if ((e.target as HTMLElement).closest('.highlight-delete-btn')) return
           const lastMark = marks[marks.length - 1]
-          positionDeleteButtonAtHighlightEnd(lastMark, deleteBtn)
+          if (containerRef.current) {
+            positionDeleteButtonAtHighlightEnd(lastMark, deleteBtn, containerRef.current)
+          }
           setActiveHighlightId(hl.id)
-          const rect = lastMark.getBoundingClientRect()
-          setAnnotationPos({ x: rect.left + rect.width / 2, y: rect.bottom + 8 })
+          const clientRects = Array.from(lastMark.getClientRects())
+          const targetRect =
+            clientRects.length > 0 ? clientRects[clientRects.length - 1] : lastMark.getBoundingClientRect()
+          setAnnotationPos({ x: targetRect.left + targetRect.width / 2, y: targetRect.bottom + 8 })
           annotationTriggerRef.current?.click()
         })
       }
 
-      positionDeleteButtonAtHighlightEnd(marks[marks.length - 1], deleteBtn)
+      if (containerRef.current) {
+        containerRef.current.appendChild(deleteBtn)
+        positionDeleteButtonAtHighlightEnd(marks[marks.length - 1], deleteBtn, containerRef.current)
+      }
     })
   }
 
@@ -435,14 +446,21 @@ export const HighlightableContent = ({
   )
 }
 
-function positionDeleteButtonAtHighlightEnd(mark: HTMLElement, deleteBtn: HTMLButtonElement) {
-  const markRect = mark.getBoundingClientRect()
+function positionDeleteButtonAtHighlightEnd(
+  mark: HTMLElement,
+  deleteBtn: HTMLButtonElement,
+  container: HTMLElement,
+) {
+  const containerRect = container.getBoundingClientRect()
   const clientRects = Array.from(mark.getClientRects())
-  const targetRect = clientRects.length > 0 ? clientRects[clientRects.length - 1] : markRect
+  const targetRect = clientRects.length > 0 ? clientRects[clientRects.length - 1] : mark.getBoundingClientRect()
 
-  deleteBtn.style.left = `${targetRect.right - markRect.left - 10}px`
-  deleteBtn.style.top = `${targetRect.top - markRect.top}px`
-  deleteBtn.style.transform = 'translate(50%, -50%)'
+  const left = targetRect.right - containerRect.left
+  const top = targetRect.top - containerRect.top
+
+  deleteBtn.style.left = `${left}px`
+  deleteBtn.style.top = `${top}px`
+  deleteBtn.style.transform = 'translate(-50%, -50%)'
 }
 
 // Absolute character offset of a range boundary (container, offset) within root,
